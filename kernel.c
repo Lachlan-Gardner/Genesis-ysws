@@ -6,8 +6,8 @@
 // elif can be used because the compilation will stop anyway if the first is true.
 #if defined (_linux_)
     #error "This code must be compiled using a cross compiler"
-#elif !defined(_i836_)
-    #error "This code must be compiled with an x86-elf compiler"
+// #elif !defined(_i686_)
+//     #error "This code must be compiled with an x86-elf compiler"
 #endif
 
 // The location of the vga buffer in memory.
