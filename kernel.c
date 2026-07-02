@@ -1,0 +1,122 @@
+// GCC provides these, so they can still be used and keep the program freestanding.
+#include <stddef.h>
+#include <stdint.h>
+
+// Checks whether the code is being compiled correctly.
+// elif can be used because the compilation will stop anyway if the first is true.
+#if defined (_linux_)
+    #error "This code must be compiled using a cross compiler"
+#elif !defined(_i836_)
+    #error "This code must be compiled with an x86-elf compiler"
+#endif
+
+// The location of the vga buffer in memory.
+// So it can be written to in order to draw things on the screen.
+// Is its position fixed?
+volatile uint16_t* vga_buffer = (uint16_t*) 0xB8000;
+
+// The vga has 80x25 characters by default.
+// Can it be increased?
+// And is it just characters I can use? No pixels?
+const int VGA_COLS = 80;
+const int VGA_ROWS = 25;
+
+// Where the text initial starts getting displayed.
+int term_col = 0;
+int term_row = 0;
+// Makes the colour black background, white text.
+// Is this setting both, or just setting white text?
+uint8_t term_colour = 0x0F;
+
+void term_init()
+{
+    // Iterates through every character in the vga buffer.
+    for (int col = 0; col < VGA_COLS; col++)
+    {
+        for (int row = 0; row < VGA_ROWS; row++)
+        {
+            // size_t because it is the largest size the system can hold.
+            // Something to do with 64 to 32 bit conversion?
+            // The vga buffer has an index the size of (VGA_COLS * VGA_ROWS), so we're finding the index for the character that is being written.
+            const size_t index = (VGA_COLS * row) + col;
+            
+            // Writes a black background over the character of that index in the vga buffer.
+            // Entries in the buffer are in binary looking like BBBBFFFFCCCCCCCC, where B is the background colour, F is foreground, and C is the character.
+            // The first part converts the uint8 to 16 bit and moves it 8 bits to the left (background and foreground colours), then add the binary of the character onto the end using or.
+            vga_buffer[index] = ((uint16_t)term_colour << 8) | ' ';
+        }
+    }
+}
+
+// Add a character to the screen.
+// Is it bad practice to call a char "character"?
+void term_put_character(char character) 
+{
+    switch(character) 
+    {
+        // If enter is pressed, set the cursor to 0 and go down a row.
+        case '\n':
+        {
+            term_col = 0;
+            term_row++;
+            break;
+        }
+        // Anything else gets appended to the column.
+        default:
+        {
+            // Calculate where in the buffer to put the character.
+            // Same as the clear function, except the position is from where the cursour currently is.
+            const size_t index = (VGA_COLS * term_row) + term_col;
+            // Same as clearing the screen, except we're now writing this new character.
+            // It also should be white if it isn't a space.
+            vga_buffer[index] = ((uint16_t)term_colour << 8) | character;
+            // Move the cursor along.
+            term_col++;
+            
+            break;
+        }
+        
+        // So the text isn't being written outside the bounds.
+        if (term_col >= VGA_COLS) 
+        {
+            // Set it back up to the start of the row.
+            term_col = 0;
+            
+            // Move down one row.
+            term_row++;
+        }
+        
+        // If the printing has reached the bottom of the vga buffer.
+        if (term_row >= VGA_ROWS) 
+        {
+            // Resets back up to the top left corner once the bottom of the screen is reached.
+            term_col = 0;
+            term_row = 0;
+            
+            // Clears the screen, though it doesn't save any text.
+            // To implement saving, you'd have to save all output to one long string, then loop through it to print it back out on scroll.
+            term_init();
+        }
+    }
+}
+
+void print_to_term(const char *str) 
+{
+    // '/0' is the null character, which is what you would get at the end of the string.
+    for (size_t i = 0; str[i] != '/0'; i++) 
+    {
+        // Write that terminal to the buffer.
+        // When does the buffer actually get written to the screen?
+        term_put_character(str[i]);
+    }
+}
+
+void kernel_main() 
+{
+    // Clears the screen to get it ready.
+    term_init();
+    
+    // Printing out some stuff.
+    print_to_term("It works!\n");
+    print_to_term("Even on a new line!\n");
+}
