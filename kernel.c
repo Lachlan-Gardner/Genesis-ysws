@@ -104,7 +104,7 @@ void term_put_character(char character)
 void print_to_term(const char *str) 
 {
     // '/0' is the null character, which is what you would get at the end of the string.
-    for (size_t i = 0; str[i] != '/0'; i++) 
+    for (size_t i = 0; str[i] != NULL; i++) 
     {
         // Write that terminal to the buffer.
         // When does the buffer actually get written to the screen?
@@ -118,6 +118,9 @@ void kernel_main()
     term_init();
     
     // Printing out some stuff.
-    print_to_term("It works!\n");
-    print_to_term("Even on a new line!\n");
+    print_to_term("It works!\nEven on a new line!");
 }
+
+//TODO: Add variable colours.
+//TODO: Keyboard input.
+//TODO: Basic curses like interface?
