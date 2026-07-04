@@ -25,7 +25,8 @@ const int VGA_ROWS = 25;
 int term_col = 0;
 int term_row = 0;
 // Makes the colour black background, white text.
-// Is this setting both, or just setting white text?
+// The vga has sixteen colours, and we're setting the foreground and background using this.
+// 0 for black, F for white.
 uint8_t term_colour = 0x0F;
 
 void term_init()
