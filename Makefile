@@ -3,10 +3,5 @@ all: kernel.c linker.ld kernel.asm
 	gcc -m32 -c kernel.c -o kernc.o
 	ld -m elf_i386 -T linker.ld -o kernel kernasm.o kernc.o
 
-clean:
-	rm kernc.o
-	rm kernasm.o
-	rm kernel
-
 run:
-	qemu-system-x86_64 -kernel kernel -display gtk
+	qemu-system-x86_64 -kernel kernel -display curses
