@@ -10,16 +10,15 @@
 //     #error "This code must be compiled with an x86-elf compiler"
 #endif
 
+/// Defines some common things.
+#define PS2_DATA_PORT 0x60
+#define PS2_STATUS_AND_COMMAND_PORT 0x64
+#define PS2_OUTPUT_READY_BIT 0x01
+
 // The location of the vga buffer in memory.
 // So it can be written to in order to draw things on the screen.
 // Is its position fixed?
 volatile uint16_t *vga_buffer = (uint16_t*) 0xB8000;
-
-// The ports of the ps/2 controller for the keyboard.
-/// The prt for the statux and c    ommand registers.
-const uint8_t keyboard_status_command_register = (uint8_t) 0x60;
-/// The data port for the keyboard dara port.
-const uint8_t keyboard_data = (uint8_t) 0x64;
 
 // The vga has 80x25 characters by default.
 // Can it be increased?
@@ -36,7 +35,7 @@ int term_row = 0;
 uint8_t term_colour = 0x0D;
 
 /// @brief Initialises the terminal by writing every character as a space.
-void term_init()
+void term_init(void)
 {
     // Iterates through every character in the vga buffer.
     for (int col = 0; col < VGA_COLS; col++)
@@ -121,116 +120,51 @@ void print_to_term(const char *str)
     }
 }
 
-/// @brief Reads a byte of data from a port.
-/// @param port Which port to read from.
+/// @brief Reads a byte from the port.
+/// @param port The port to be read from.
 /// @return The byte.
-uint8_t read_port(uint16_t port) 
-{
+static inline uint8_t inb(uint16_t port) {
     uint8_t data;
-    __asm__ volatile ("inb %1, %0" : "=a"(data) : "Nd"(port));
+    // A bit of assembly.
+    // I did not write this, it's from MiyarOS, so thank you to the author of that.
+    asm volatile ("inb %1, %0" : "=a"(data) : "Nd"(port));
     return data;
 }
 
-/// @brief Write a byte to a port.
+/// @brief Writes a byte to the specified port.
 /// @param port The port to write to.
-/// @param data_to_write what to write.
-void write_port(uint16_t port, uint8_t data_to_write)
+/// @param data The data that is being written.
+static inline void outb(uint16_t port, uint8_t data)
 {
-    __asm__ volatile ("outb %0, %1" : : "a"(data_to_write), "Nd"(port));
+    // I did not write this, it's from MiyarOS, so thank you to the author of that.
+    asm volatile ("outb %0, %1" : : "a"(data), "Nd"(port));
 }
 
-
-char get_input()
+/// @brief Checks whether the keyboard has a buffer to be read for scancodes.
+/// @return 1 if it is ready, 0 if it isn't.
+int keyboard_buffer_ready(void)
 {
-    while (1) {
-        int pressed_enter = 0;
-        
-        print_to_term("\nStarting get input.     ");
-        
-        // Make sure there's a byte to read.
-        while(!(read_port(keyboard_data & 1))) {
-            // Just wait.
-        }
-        
-        const uint8_t scancode = read_port(keyboard_data);
-        
-        if (scancode == 0x12) {
-            return 'e';
-        }
-    }
+    // Bitwise operations make me feel so smart.
+    return inb(PS2_STATUS_AND_COMMAND_PORT) & PS2_OUTPUT_READY_BIT;
 }
 
-int ps_port_init()
-{
-    // Disable the first port.
-    write_port(keyboard_status_command_register, 0xAD);
-    // Disable the sceond port.
-    write_port(keyboard_status_command_register, 0xAD);
-    
-    read_port(keyboard_data);
-    
-    // Flushing the bits of the ps/2 controller.
-    
-    /// Disable IRQ.
-    uint8_t flush_bit_0 = 1;
-    /// Disables translation of port 1.
-    uint8_t flush_bit_6 = 1 << 6;
-    /// Enables clock signal.
-    uint8_t flush_bit_4 = 1 << 4;
-    
-    // I feel so smart rn.
-    uint8_t total_flush = ~(0 | flush_bit_0 | flush_bit_6 | flush_bit_4);
-    
-    uint8_t flushed_port = read_port(keyboard_status_command_register) & total_flush;
-    
-    write_port(keyboard_status_command_register, flushed_port);
-    
-    write_port(keyboard_status_command_register, 0xAA);
-    
-    while (!(read_port(keyboard_status_command_register) & 1)) 
-    {
-        // Waits until results of the are ready.
-        //! If there's an infite loop it's probably this.
+uint8_t keyboard_get_scancode(void) {
+    while (!keyboard_buffer_ready()) {
+        // Just wait until there is data to read.
+        // This feels so wrong, but I can add interrupts later if there's time.
     }
+    return inb(PS2_DATA_PORT);
+}
+
+/// @brief Converts the scancode to char.
+/// @param scancode The scancode.
+/// @return The converted char. Returns 0 if it isn't a valid character.
+char scancode_conversion(uint8_t scancode)
+{    
+    /// 0s represent keys that don't map to characters, like escape or error code.
+    static char scancode_table[58] = {0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 0, '\t', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', 0, 0, 'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`', 0, '\\', 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', 0, '*', 0, ' '};
     
-    const uint8_t result_from_self_test = read_port(keyboard_status_command_register);
-    
-    // Test failed.
-    if (result_from_self_test != 0x55)
-    {
-        // "And now we know."
-        print_to_term("\nPs/2 Controller failed self test.");
-        
-        // Reflects the failure.
-        return 0;
-    }
-    
-    // Tries to enable the second port.
-    write_port(keyboard_status_command_register, 0xA8);
-    
-    write_port(keyboard_status_command_register, 0x20);
-    
-    while (!(read_port(keyboard_status_command_register) & 1)) 
-    {
-        // Waits until results of the are ready.
-        //! If there's an infite loop it's probably this.
-    }
-    
-    const uint8_t result_from_configuration_test = read_port(keyboard_status_command_register);
-    
-    if (result_from_configuration_test & (1 << 4))
-    {
-        print_to_term("\nOnly one port ps/2 controller.");
-    } else {
-        // Disable tbe second port.
-        write_port(keyboard_status_command_register, 0xA7);
-    }
-    
-    write_port(keyboard_status_command_register, 0xAE);
-    
-    write_port(keyboard_status_command_register, 0xFF);
-    
-    return 1;
+    return scancode_table[scancode];
 }
 
 void kernel_main() 
@@ -241,16 +175,18 @@ void kernel_main()
     // Printing out some stuff.
     print_to_term("It works!\nEven on a new line!");
     
-    if (ps_port_init())
+    while (1)
     {
-        print_to_term("\nSuccessful ps/2 init!");
+        uint8_t scancode = keyboard_get_scancode();
+        
+        char something;
+        
+        if (!(scancode & 0x80) && scancode <= 58)
+        {
+            something = scancode_conversion(scancode);
+        }
+        term_put_character(something);
     }
-    
-    char something = get_input();
-    
-    print_to_term("Finished getting input: ");
-    
-    term_put_character(something);
 }
 
 //TODO: Add variable colours.
