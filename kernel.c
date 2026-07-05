@@ -142,18 +142,20 @@ void write_port(uint16_t port, uint8_t data_to_write)
 
 char get_input()
 {
-    int pressed_enter = 0;
-    
-    print_to_term("\nStarting get input.     ");
-    
-    while (1) 
-    {
-        if (read_port(keyboard_status_command_register) & 1) 
-        {
-            if (read_port(keyboard_data) == 0x02)
-            {
-                return '1';
-            }
+    while (1) {
+        int pressed_enter = 0;
+        
+        print_to_term("\nStarting get input.     ");
+        
+        // Make sure there's a byte to read.
+        while(!(read_port(keyboard_data & 1))) {
+            // Just wait.
+        }
+        
+        const uint8_t scancode = read_port(keyboard_data);
+        
+        if (scancode == 0x12) {
+            return 'e';
         }
     }
 }
@@ -222,7 +224,13 @@ int ps_port_init()
     } else {
         // Disable tbe second port.
         write_port(keyboard_status_command_register, 0xA7);
-    } 
+    }
+    
+    write_port(keyboard_status_command_register, 0xAE);
+    
+    write_port(keyboard_status_command_register, 0xFF);
+    
+    return 1;
 }
 
 void kernel_main() 
@@ -232,6 +240,11 @@ void kernel_main()
     
     // Printing out some stuff.
     print_to_term("It works!\nEven on a new line!");
+    
+    if (ps_port_init())
+    {
+        print_to_term("\nSuccessful ps/2 init!");
+    }
     
     char something = get_input();
     
