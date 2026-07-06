@@ -42,7 +42,7 @@ typedef struct
 } typed_string;
 
 /// @brief Initialises the terminal by writing every character as a space.
-void term_init(void)
+void term_init()
 {
     // Iterates through every character in the vga buffer.
     for (int col = 0; col < VGA_COLS; col++)
@@ -149,13 +149,13 @@ static inline void outb(uint16_t port, uint8_t data)
 
 /// @brief Checks whether the keyboard has a buffer to be read for scancodes.
 /// @return 1 if it is ready, 0 if it isn't.
-int keyboard_buffer_ready(void)
+int keyboard_buffer_ready()
 {
     // Bitwise operations make me feel so smart.
     return inb(PS2_STATUS_AND_COMMAND_PORT) & PS2_OUTPUT_READY_BIT;
 }
 
-uint8_t keyboard_get_scancode(void) {
+uint8_t keyboard_get_scancode() {
     while (!keyboard_buffer_ready()) {
         // Just wait until there is data to read.
         // This feels so wrong, but I can add interrupts later if there's time.
@@ -187,7 +187,7 @@ int string_length(const char *string)
 
 /// @brief Get a string input from the keyboard.
 /// @return Where in the vga buffer the string is.
-typed_string get_input(void)
+typed_string get_input()
 {
     int enter_pressed = 0;
     // The vga index before typing
@@ -225,7 +225,7 @@ typed_string get_input(void)
 /// @param string The struct containing the vga info.
 /// @param target The target that it has to match.
 /// @return true if it's a match, 0 for a mismatch.
-int parse_input(typed_string string, const char *target)
+int check_string(typed_string string, const char *target)
 {        
     for (int i = 0; string.start_index + i < string.end_index; i++)
     {
@@ -242,6 +242,11 @@ int parse_input(typed_string string, const char *target)
     return 1;
 }
 
+int basic_shell()
+{
+
+}
+
 void kernel_main() 
 {
     // Clears the screen to get it ready.
@@ -254,7 +259,7 @@ void kernel_main()
     
     typed_string new_string = get_input();
     
-    if (parse_input(new_string, "hello"))
+    if (check_strin(new_string, "hello"))
     {
         print_to_term("Hi!");
     } else 
