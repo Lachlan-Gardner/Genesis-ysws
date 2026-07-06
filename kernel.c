@@ -34,6 +34,12 @@ int term_row = 0;
 // 0 for black, F for white.
 uint8_t term_colour = 0x0D;
 
+typedef struct 
+{
+    size_t start_index;
+    size_t end_index;
+} typed_string;
+
 /// @brief Initialises the terminal by writing every character as a space.
 void term_init(void)
 {
@@ -112,7 +118,7 @@ void term_put_character(char character)
 void print_to_term(const char *str) 
 {
     // '/0' is the null character, which is what you would get at the end of the string.
-    for (size_t i = 0; str[i] != NULL; i++) 
+    for (size_t i = 0; str[i] != '\0'; i++) 
     {
         // Write that terminal to the buffer.
         // When does the buffer actually get written to the screen?
@@ -167,6 +173,51 @@ char scancode_conversion(uint8_t scancode)
     return scancode_table[scancode];
 }
 
+/// @brief Finds the length of a string.
+/// @param string 
+/// @return The length of the string, which is the index that the NULL character is on.
+int string_length(const char *string) 
+{
+    int index;
+    // Increments index until it reaches the end of the string.
+    for (index = 0; string[index] != NULL; index++);
+    return index;
+}
+
+typed_string get_input(void)
+{
+    int enter_pressed = 0;
+    // The vga index before typing
+    typed_string string = {.start_index = (VGA_COLS * term_row) + term_col};
+    
+    // Probably bad practice, but it'll survive. My teacher would kill me if he ever saw this though.
+    // The loop repeats until enter is pressed, which will break the loop.
+    while (1)
+    {
+        const uint8_t scancode = keyboard_get_scancode();
+        
+        // If enter is pressed.
+        if (scancode == 0x1C) {
+            // Break the loop.
+            break;
+        }
+        
+        // If the scancode isn't released or an irrelevant key.
+        if (scancode < 0x80 || scancode < 58) 
+        {
+            char typed_character = scancode_conversion(scancode);
+    
+            // Write to the buffer.
+            term_put_character(typed_character);
+        }
+    }
+    
+    // Finds the current index after typing.
+    string.end_index = (VGA_COLS * term_row) + term_col;
+    
+    return string;
+}
+
 void kernel_main() 
 {
     // Clears the screen to get it ready.
@@ -175,20 +226,12 @@ void kernel_main()
     // Printing out some stuff.
     print_to_term("It works!\nEven on a new line!");
     
-    while (1)
-    {
-        uint8_t scancode = keyboard_get_scancode();
-        
-        char something;
-        
-        if (!(scancode & 0x80) && scancode <= 58)
-        {
-            something = scancode_conversion(scancode);
-        }
-        term_put_character(something);
-    }
+    print_to_term("\nThe Best OS: ");
+    
+    get_input();
 }
 
 //TODO: Add variable colours.
 //TODO: Keyboard input.
 //TODO: Basic curses like interface?
+//TODO: Add backspace support.
