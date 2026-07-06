@@ -34,6 +34,7 @@ int term_row = 0;
 // 0 for black, F for white.
 uint8_t term_colour = 0x0D;
 
+// Location of a string in memory.
 typedef struct 
 {
     size_t start_index;
@@ -184,6 +185,8 @@ int string_length(const char *string)
     return index;
 }
 
+/// @brief Get a string input from the keyboard.
+/// @return Where in the vga buffer the string is.
 typed_string get_input(void)
 {
     int enter_pressed = 0;
@@ -218,6 +221,27 @@ typed_string get_input(void)
     return string;
 }
 
+/// @brief Checks whether the vga string matches the target. This cannot be the best way to do this, but idk how else to pass around strings without memory allocation, and i do not want to do that freestanding.
+/// @param string The struct containing the vga info.
+/// @param target The target that it has to match.
+/// @return true if it's a match, 0 for a mismatch.
+int parse_input(typed_string string, const char *target)
+{        
+    for (int i = 0; string.start_index + i < string.end_index; i++)
+    {
+        // Clears the last 8 bits in the vga buffer index.
+        char char_in_vga = (vga_buffer[string.start_index +i] << 8) >> 8;
+        
+        // Checks whether it's a match to that part of the target.
+        if (char_in_vga != target[i])
+        {
+            return 0;
+        }
+    }
+    
+    return 1;
+}
+
 void kernel_main() 
 {
     // Clears the screen to get it ready.
@@ -228,7 +252,15 @@ void kernel_main()
     
     print_to_term("\nThe Best OS: ");
     
-    get_input();
+    typed_string new_string = get_input();
+    
+    if (parse_input(new_string, "hello"))
+    {
+        print_to_term("Hi!");
+    } else 
+    {
+        print_to_term("BOO!");
+    }
 }
 
 //TODO: Add variable colours.
