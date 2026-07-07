@@ -287,7 +287,12 @@ typed_string get_input()
 /// @param target The target that it has to match.
 /// @return true if it's a match, 0 for a mismatch.
 int check_string(typed_string string, const char *target)
-{        
+{
+    // In case enter was just pressed and there is nothing to interate through.
+    if (string.start_index == string.end_index){
+        return 0;
+    }
+    
     for (int i = 0; string.start_index + i < string.end_index; i++)
     {
         // Clears the last 8 bits in the vga buffer index.
