@@ -105,14 +105,14 @@ void disable_cursor()
 void term_init()
 {
     // Iterates through every character in the vga buffer.
-    for (int col = 0; col < vga_columns; col++)
+    for (int column = 0; column < vga_columns; column++)
     {
         for (int row = 0; row < vga_rows; row++)
         {
             // size_t because it is the largest size the system can hold.
             // Something to do with 64 to 32 bit conversion?
             // The vga buffer has an index the size of (vga_columns * vga_rows), so we're finding the index for the character that is being written.
-            const size_t index = (vga_columns * row) + col;
+            const size_t index = (vga_columns * row) + column;
             
             // Writes a black background over the character of that index in the vga buffer.
             // Entries in the buffer are in binary looking like BBBBFFFFCCCCCCCC, where B is the background colour, F is foreground, and C is the character.
@@ -120,6 +120,10 @@ void term_init()
             vga_buffer[index] = ((uint16_t)term_colour << 8) | ' ';
         }
     }
+    
+    // Reset to top left.
+    term_col = 0;
+    term_row = 0;
 }
 
 /// @brief Puts a character on the screen.
@@ -342,8 +346,10 @@ void terminal_prompt()
 void print_help_menu()
 {
     print_to_term("\nexit - Exits the shell");
+    print_to_term("\nabout - Prints some info about the \"OS\"");
 }
 
+/// @brief Print a little thinf about the OS.
 void print_about()
 {
     print_to_term("\nThis is an OS I made for the genesis ysws challenge(? event? what do you call it?).\nI had no prior experience with any low level stuff, so I learnt a lot doing this project (it should also explain if anything looks weird or is done strangely)");
@@ -391,6 +397,11 @@ void basic_shell()
     
 }
 
+void print_exit_message()
+{
+    print_to_term("\n ########::'##:::'##:'########:\n ##.... ##:. ##:'##:: ##.....::\n ##:::: ##::. ####::: ##:::::::\n ########::::. ##:::: ######:::\n ##.... ##:::: ##:::: ##...::::\n ##:::: ##:::: ##:::: ##:::::::\n ########::::: ##:::: ########:\n........::::::..:::::........::\n");
+}
+
 int kernel_main() 
 {
     // Clears the screen to get it ready.
@@ -405,7 +416,11 @@ int kernel_main()
     // Clears the screen and gets rid of the cursor.
     // Exiting the program doesn't seem to work rn, so this is the best we get.
     term_init();
+    
     disable_cursor();
+    
+    // Try it and find out.
+    print_to_term("\n ########::'##:::'##:'########:\n ##.... ##:. ##:'##:: ##.....::\n ##:::: ##::. ####::: ##:::::::\n ########::::. ##:::: ######:::\n ##.... ##:::: ##:::: ##...::::\n ##:::: ##:::: ##:::: ##:::::::\n ########::::: ##:::: ########:\n........::::::..:::::........::\n");
     
     return 0;
 }
