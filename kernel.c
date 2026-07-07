@@ -41,6 +41,16 @@ typedef struct
     size_t end_index;
 } typed_string;
 
+void move_cursor()
+{
+    
+}
+
+void enable_cursor()
+{
+
+}
+
 /// @brief Initialises the terminal by writing every character as a space.
 void term_init()
 {
@@ -68,7 +78,7 @@ void term_put_character(char character)
 {
     switch(character) 
     {
-        // If enter is pressed, set the cursor to 0 and go down a row.
+        // If it's a newline, set the cursor to 0 and go down a row.
         case '\n':
         {
             term_col = 0;
@@ -185,6 +195,20 @@ int string_length(const char *string)
     return index;
 }
 
+void backspace()
+{
+    // Move the cursor along.
+    term_col--;
+    
+    // Calculate where in the buffer to put the empty space character.
+    // It's just one less than the current location.
+    const size_t index = (VGA_COLS * term_row) + term_col;
+    
+    // Same as clearing the screen, except we're now writing this new character.
+    // It also should be white if it isn't a space.
+    vga_buffer[index] = ((uint16_t)term_colour << 8) | ' ';
+}
+
 /// @brief Get a string input from the keyboard.
 /// @return Where in the vga buffer the string is.
 typed_string get_input()
@@ -205,8 +229,11 @@ typed_string get_input()
             break;
         }
         
-        // If the scancode isn't released or an irrelevant key.
-        if (scancode < 0x80 || scancode < 58) 
+        if (scancode== 0x0E)
+        {
+            backspace();
+          // If the scancode isn't released or an irrelevant/other key.
+        } else if (scancode < 0x80 || scancode < 58) 
         {
             char typed_character = scancode_conversion(scancode);
     
@@ -242,9 +269,35 @@ int check_string(typed_string string, const char *target)
     return 1;
 }
 
+/// @brief Makes a new line on the terminal with a prompt.
+void new_terminal_line()
+{
+    print_to_term("\nShell: ");
+}
+
 int basic_shell()
 {
-
+    // Have while loop. Get input and check to see if it matches a command. Execute command.
+    int in_shell = 1;
+    
+    while (in_shell)
+    {
+        new_terminal_line();
+        
+        typed_string user_input = get_input();
+        
+        if (check_string(user_input, "help"))
+        {
+            print_to_term("\nexit - Exits the shell");
+        } else if (check_string(user_input, "exit"))
+        {
+            in_shell = 0;
+        } else
+        {
+            print_to_term("\nThat isn't a valid option. Enter \"help\" to see the options.");
+        }
+    }
+    
 }
 
 void kernel_main() 
@@ -257,15 +310,9 @@ void kernel_main()
     
     print_to_term("\nThe Best OS: ");
     
-    typed_string new_string = get_input();
+    basic_shell();
     
-    if (check_strin(new_string, "hello"))
-    {
-        print_to_term("Hi!");
-    } else 
-    {
-        print_to_term("BOO!");
-    }
+    return;
 }
 
 //TODO: Add variable colours.
