@@ -23,8 +23,8 @@ volatile uint16_t *vga_buffer = (uint16_t*) 0xB8000;
 // The vga has 80x25 characters by default.
 // Can it be increased?
 // And is it just characters I can use? No pixels?
-const int VGA_COLS = 80;
-const int VGA_ROWS = 25;
+const int vga_columns = 80;
+const int vga_rows = 25;
 
 // Where the text initial starts getting displayed.
 int term_col = 0;
@@ -45,28 +45,66 @@ typedef struct
     size_t end_index;
 } typed_string;
 
-void move_cursor()
-{
-    
+/// @brief Reads a byte from the port.
+/// @param port The port to be read from.
+/// @return The byte.
+static inline uint8_t inb(uint16_t port) {
+    uint8_t data;
+    // A bit of assembly.
+    // I did not write this, it's from MiyarOS, so thank you to the author of that.
+    asm volatile ("inb %1, %0" : "=a"(data) : "Nd"(port));
+    return data;
 }
 
+/// @brief Writes a byte to the specified port.
+/// @param port The port to write to.
+/// @param data The data that is being written.
+static inline void outb(uint16_t port, uint8_t data)
+{
+    // I did not write this, it's from MiyarOS, so thank you to the author of that.
+    asm volatile ("outb %0, %1" : : "a"(data), "Nd"(port));
+}
+
+/// @brief Updates the cursor location.
+void update_cursor()
+{
+    // No idea why it has to be vga_rows * 3 + t, it just works for whatever reason.
+    // I think it's something to do with cursor locations and vga size mismatch.
+    uint16_t position = term_row * (vga_rows * 3 + 5) + term_col;
+
+	outb(0x3D4, 0x0F);
+	outb(0x3D5, (uint8_t) (position & 0xFF));
+	outb(0x3D4, 0x0E);
+	outb(0x3D5, (uint8_t) ((position >> 8) & 0xFF));
+}
+
+/// @brief Enables the cursor so people can see where they're typing.
 void enable_cursor()
 {
+    // How many lines in the cursor.
+    const int cursor_start = 0;
+    const int cursor_end = 15;
+    
+    // Copied pretty much verbatim from https://wiki.osdev.org/Text_Mode_Cursor
+	outb(0x3D4, 0x0A);
+	outb(0x3D5, (inb(0x3D5) & 0xC0) | cursor_start);
 
+	outb(0x3D4, 0x0B);
+	outb(0x3D5, (inb(0x3D5) & 0xE0) | cursor_end);
 }
 
 /// @brief Initialises the terminal by writing every character as a space.
 void term_init()
 {
     // Iterates through every character in the vga buffer.
-    for (int col = 0; col < VGA_COLS; col++)
+    for (int col = 0; col < vga_columns; col++)
     {
-        for (int row = 0; row < VGA_ROWS; row++)
+        for (int row = 0; row < vga_rows; row++)
         {
             // size_t because it is the largest size the system can hold.
             // Something to do with 64 to 32 bit conversion?
-            // The vga buffer has an index the size of (VGA_COLS * VGA_ROWS), so we're finding the index for the character that is being written.
-            const size_t index = (VGA_COLS * row) + col;
+            // The vga buffer has an index the size of (vga_columns * vga_rows), so we're finding the index for the character that is being written.
+            const size_t index = (vga_columns * row) + col;
             
             // Writes a black background over the character of that index in the vga buffer.
             // Entries in the buffer are in binary looking like BBBBFFFFCCCCCCCC, where B is the background colour, F is foreground, and C is the character.
@@ -94,7 +132,7 @@ void term_put_character(char character)
         {
             // Calculate where in the buffer to put the character.
             // Same as the clear function, except the position is from where the cursour currently is.
-            const size_t index = (VGA_COLS * term_row) + term_col;
+            const size_t index = (vga_columns * term_row) + term_col;
             // Same as clearing the screen, except we're now writing this new character.
             // It also should be white if it isn't a space.
             vga_buffer[index] = ((uint16_t)term_colour << 8) | character;
@@ -105,7 +143,7 @@ void term_put_character(char character)
         }
         
         // So the text isn't being written outside the bounds.
-        if (term_col >= VGA_COLS) 
+        if (term_col >= vga_columns) 
         {
             // Set it back up to the start of the row.
             term_col = 0;
@@ -115,7 +153,7 @@ void term_put_character(char character)
         }
         
         // If the printing has reached the bottom of the vga buffer.
-        if (term_row >= VGA_ROWS) 
+        if (term_row >= vga_rows) 
         {
             // Resets back up to the top left corner once the bottom of the screen is reached.
             term_col = 0;
@@ -126,6 +164,8 @@ void term_put_character(char character)
             term_init();
         }
     }
+    
+    update_cursor();
 }
 
 /// @brief Print a string to the terminal.
@@ -139,26 +179,6 @@ void print_to_term(const char *string)
         // When does the buffer actually get written to the screen?
         term_put_character(string[i]);
     }
-}
-
-/// @brief Reads a byte from the port.
-/// @param port The port to be read from.
-/// @return The byte.
-static inline uint8_t inb(uint16_t port) {
-    uint8_t data;
-    // A bit of assembly.
-    // I did not write this, it's from MiyarOS, so thank you to the author of that.
-    asm volatile ("inb %1, %0" : "=a"(data) : "Nd"(port));
-    return data;
-}
-
-/// @brief Writes a byte to the specified port.
-/// @param port The port to write to.
-/// @param data The data that is being written.
-static inline void outb(uint16_t port, uint8_t data)
-{
-    // I did not write this, it's from MiyarOS, so thank you to the author of that.
-    asm volatile ("outb %0, %1" : : "a"(data), "Nd"(port));
 }
 
 /// @brief Checks whether the keyboard has a buffer to be read for scancodes.
@@ -204,7 +224,7 @@ void backspace()
 { 
     // Calculate where in the buffer to put the empty space character.
     // It's just one less than the current location.
-    const size_t index = (VGA_COLS * term_row) + term_col - 2;
+    const size_t index = (vga_columns * term_row) + term_col - 2;
     
     const uint32_t character_next = vga_buffer[index];
     
@@ -213,11 +233,13 @@ void backspace()
         // Move the cursor along.
         term_col--;
         
-        size_t index = (VGA_COLS * term_row) + term_col;
+        size_t index = (vga_columns * term_row) + term_col;
         
         // Same as clearing the screen, except we're now writing this new character.
         // It also should be white if it isn't a space.
         vga_buffer[index] = ((uint16_t)term_colour << 8) | ' ';
+        
+        update_cursor();
     }
 }
 
@@ -227,7 +249,7 @@ typed_string get_input()
 {
     int enter_pressed = 0;
     // The vga index before typing
-    typed_string string = {.start_index = (VGA_COLS * term_row) + term_col};
+    typed_string string = {.start_index = (vga_columns * term_row) + term_col};
     
     // Probably bad practice, but it'll survive. My teacher would kill me if he ever saw this though.
     // The loop repeats until enter is pressed, which will break the loop.
@@ -245,7 +267,7 @@ typed_string get_input()
         {
             backspace();
           // If the scancode isn't released or an irrelevant/other key.
-        } else if (scancode < 0x80 || scancode < 58) 
+        } else if (scancode < 0x80 && scancode < 58) 
         {
             char typed_character = scancode_conversion(scancode);
     
@@ -255,7 +277,7 @@ typed_string get_input()
     }
     
     // Finds the current index after typing.
-    string.end_index = (VGA_COLS * term_row) + term_col;
+    string.end_index = (vga_columns * term_row) + term_col;
     
     return string;
 }
@@ -296,13 +318,15 @@ void terminal_prompt()
         term_put_character(prompt[i]);
     }
     
-    const size_t index = (VGA_COLS * term_row) + term_col;
+    const size_t index = (vga_columns * term_row) + term_col;
     
     // Writes it to the terminal with a different colour so that it knows not to backspace it.
     vga_buffer[index] = prompt_character;
     term_col++;
     
     term_put_character(' ');
+    
+    update_cursor();
 }
 
 /// @brief Makes a new line on the terminal with a prompt.
@@ -343,17 +367,11 @@ void kernel_main()
     // Clears the screen to get it ready.
     term_init();
     
-    // Printing out some stuff.
-    print_to_term("It works!\nEven on a new line!");
+    enable_cursor();
     
-    print_to_term("\nThe Best OS: ");
+    update_cursor();
     
     basic_shell();
     
     return;
 }
-
-//TODO: Add variable colours.
-//TODO: Keyboard input.
-//TODO: Basic curses like interface?
-//TODO: Add backspace support.
