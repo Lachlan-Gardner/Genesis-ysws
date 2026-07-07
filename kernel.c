@@ -126,53 +126,49 @@ void term_init()
 /// @param character The character to add. Is it bad practice to call a char character?
 void term_put_character(char character) 
 {
-    switch(character) 
+    // If it's a newline, set the cursor to 0 and go down a row.
+    if (character == '\n')
     {
-        // If it's a newline, set the cursor to 0 and go down a row.
-        case '\n':
-        {
-            term_col = 0;
-            term_row++;
-            break;
-        }
-        // Anything else gets appended to the column.
-        default:
-        {
-            // Calculate where in the buffer to put the character.
-            // Same as the clear function, except the position is from where the cursour currently is.
-            const size_t index = (vga_columns * term_row) + term_col;
-            // Same as clearing the screen, except we're now writing this new character.
-            // It also should be white if it isn't a space.
-            vga_buffer[index] = ((uint16_t)term_colour << 8) | character;
-            // Move the cursor along.
-            term_col++;
-            
-            break;
-        }
+        term_col = 0;
+        term_row++;
         
-        // So the text isn't being written outside the bounds.
-        if (term_col >= vga_columns) 
-        {
-            // Set it back up to the start of the row.
-            term_col = 0;
-            
-            // Move down one row.
-            term_row++;
-        }
+        // Updates the cursor
+        update_cursor();
         
-        // If the printing has reached the bottom of the vga buffer.
-        if (term_row >= vga_rows) 
-        {
-            // Resets back up to the top left corner once the bottom of the screen is reached.
-            term_col = 0;
-            term_row = 0;
-            
-            // Clears the screen, though it doesn't save any text.
-            // To implement saving, you'd have to save all output to one long string, then loop through it to print it back out on scroll.
-            term_init();
-        }
+        return;
     }
     
+    // Calculate where in the buffer to put the character.
+    // Same as the clear function, except the position is from where the cursour currently is.
+    const size_t index = (vga_columns * term_row) + term_col;
+    // Same as clearing the screen, except we're now writing this new character.
+    // It also should be white if it isn't a space.
+    vga_buffer[index] = ((uint16_t)term_colour << 8) | character;
+    // Move the cursor along.
+    term_col++;
+
+    // So the text isn't being written outside the bounds.
+    if (term_col >= vga_columns) 
+    {
+        // Set it back up to the start of the row.
+        term_col = 0;
+
+        // Move down one row.
+        term_row++;
+    }
+    
+    // If the printing has reached the bottom of the vga buffer.
+    if (term_row >= vga_rows) 
+    {
+        // Resets back up to the top left corner once the bottom of the screen is reached.
+        term_col = 0;
+        term_row = 0;
+        
+        // Clears the screen, though it doesn't save any text.
+        // To implement saving, you'd have to save all output to one long string, then loop through it to print it back out on scroll.
+        term_init();
+    }
+
     update_cursor();
 }
 
@@ -350,7 +346,7 @@ void print_help_menu()
 
 void print_about()
 {
-    print_to_term("This is an OS I made for the genesis ysws challenge(? event? what do you call it?).\nI had no prior experience with any low level stuff, so I learnt a lot doing this project (it should also explain if anything looks weird or is done strangely).");
+    print_to_term("\nThis is an OS I made for the genesis ysws challenge(? event? what do you call it?).\nI had no prior experience with any low level stuff, so I learnt a lot doing this project (it should also explain if anything looks weird or is done strangely)");
 }
 
 /// @brief Makes a new line on the terminal with a prompt.
@@ -385,7 +381,7 @@ void basic_shell()
         } else if (check_string(user_input, "about"))
         {
             print_about();
-        }
+        } else
         {
             print_to_term("\nThat isn't a valid option. Enter \"help\" to see the options.");
         }
