@@ -11,3 +11,11 @@ run-gtk:
 
 run-curses:
 	qemu-system-x86_64 -kernel kernel -display curses
+
+iso:
+# Requires a cross compiler and grub.
+	i686-elf-gcc -T linker.ld -o genesis-os -ffreestanding -O2 -nostdlib kernasm.o kernc.o -lgcc
+	mkdir -p isodir/boot/grub
+	cp genesis-os isodir/boot/genesis-os
+	cp grub.cfg isodir/boot/grub/grub.cfg
+	grub-mkrescue -o genesis-os.iso isodir
