@@ -11,9 +11,9 @@
 #endif
 
 /// Defines some common things.
-#define PS2_DATA_PORT 0x60
-#define PS2_STATUS_AND_COMMAND_PORT 0x64
-#define PS2_OUTPUT_READY_BIT 0x01
+const uint8_t ps2_data_port = 0x60;
+const uint8_t ps2_status_and_command_port = 0x64;
+const uint8_t ps2_output_ready_bit = 0x01;
 
 // The location of the vga buffer in memory.
 // So it can be written to in order to draw things on the screen.
@@ -33,6 +33,10 @@ int term_row = 0;
 // The vga has sixteen colours, and we're setting the foreground and background using this.
 // 0 for black, F for white.
 uint8_t term_colour = 0x0D;
+    
+const uint8_t term_prompt_colour = 0x0C;
+
+const uint16_t prompt_character = ((uint16_t)term_prompt_colour << 8) | ':';
 
 // Location of a string in memory.
 typedef struct 
@@ -125,15 +129,15 @@ void term_put_character(char character)
 }
 
 /// @brief Print a string to the terminal.
-/// @param str The string to print.
-void print_to_term(const char *str) 
+/// @param string The string to print.
+void print_to_term(const char *string) 
 {
     // '/0' is the null character, which is what you would get at the end of the string.
-    for (size_t i = 0; str[i] != '\0'; i++) 
+    for (size_t i = 0; string[i] != '\0'; i++) 
     {
         // Write that terminal to the buffer.
         // When does the buffer actually get written to the screen?
-        term_put_character(str[i]);
+        term_put_character(string[i]);
     }
 }
 
@@ -162,7 +166,7 @@ static inline void outb(uint16_t port, uint8_t data)
 int keyboard_buffer_ready()
 {
     // Bitwise operations make me feel so smart.
-    return inb(PS2_STATUS_AND_COMMAND_PORT) & PS2_OUTPUT_READY_BIT;
+    return inb(ps2_status_and_command_port) & ps2_output_ready_bit;
 }
 
 uint8_t keyboard_get_scancode() {
@@ -170,7 +174,7 @@ uint8_t keyboard_get_scancode() {
         // Just wait until there is data to read.
         // This feels so wrong, but I can add interrupts later if there's time.
     }
-    return inb(PS2_DATA_PORT);
+    return inb(ps2_data_port);
 }
 
 /// @brief Converts the scancode to char.
@@ -195,18 +199,26 @@ int string_length(const char *string)
     return index;
 }
 
+/// @brief Removes the last character.
 void backspace()
-{
-    // Move the cursor along.
-    term_col--;
-    
+{ 
     // Calculate where in the buffer to put the empty space character.
     // It's just one less than the current location.
-    const size_t index = (VGA_COLS * term_row) + term_col;
+    const size_t index = (VGA_COLS * term_row) + term_col - 2;
     
-    // Same as clearing the screen, except we're now writing this new character.
-    // It also should be white if it isn't a space.
-    vga_buffer[index] = ((uint16_t)term_colour << 8) | ' ';
+    const uint32_t character_next = vga_buffer[index];
+    
+    if (character_next != prompt_character)
+    {
+        // Move the cursor along.
+        term_col--;
+        
+        size_t index = (VGA_COLS * term_row) + term_col;
+        
+        // Same as clearing the screen, except we're now writing this new character.
+        // It also should be white if it isn't a space.
+        vga_buffer[index] = ((uint16_t)term_colour << 8) | ' ';
+    }
 }
 
 /// @brief Get a string input from the keyboard.
@@ -269,13 +281,39 @@ int check_string(typed_string string, const char *target)
     return 1;
 }
 
+/// @brief Writes the terminal prompt to the terminal.
+void terminal_prompt()
+{
+    //TODO: Change this to use different colour.
+    
+    const char *prompt = "Shell";
+
+    // '/0' is the null character, which is what you would get at the end of the string.
+    for (size_t i = 0; prompt[i] != '\0'; i++) 
+    {
+        // Write that terminal to the buffer.
+        // When does the buffer actually get written to the screen?
+        term_put_character(prompt[i]);
+    }
+    
+    const size_t index = (VGA_COLS * term_row) + term_col;
+    
+    // Writes it to the terminal with a different colour so that it knows not to backspace it.
+    vga_buffer[index] = prompt_character;
+    term_col++;
+    
+    term_put_character(' ');
+}
+
 /// @brief Makes a new line on the terminal with a prompt.
 void new_terminal_line()
 {
-    print_to_term("\nShell: ");
+    term_put_character('\n');
+    terminal_prompt();
 }
 
-int basic_shell()
+/// @brief Basic shell. I won't lie, it's not the best, but it works-ish.
+void basic_shell()
 {
     // Have while loop. Get input and check to see if it matches a command. Execute command.
     int in_shell = 1;
