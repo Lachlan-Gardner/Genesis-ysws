@@ -93,6 +93,14 @@ void enable_cursor()
 	outb(0x3D5, (inb(0x3D5) & 0xE0) | cursor_end);
 }
 
+/// @brief Disables the cursor
+void disable_cursor()
+{
+    // Copied from the osdev wiki.
+	outb(0x3D4, 0x0A);
+	outb(0x3D5, 0x20);
+}
+
 /// @brief Initialises the terminal by writing every character as a space.
 void term_init()
 {
@@ -334,6 +342,17 @@ void terminal_prompt()
     update_cursor();
 }
 
+/// @brief Prints the help menu.
+void print_help_menu()
+{
+    print_to_term("\nexit - Exits the shell");
+}
+
+void print_about()
+{
+    print_to_term("This is an OS I made for the genesis ysws challenge(? event? what do you call it?).\nI had no prior experience with any low level stuff, so I learnt a lot doing this project (it should also explain if anything looks weird or is done strangely).");
+}
+
 /// @brief Makes a new line on the terminal with a prompt.
 void new_terminal_line()
 {
@@ -347,27 +366,36 @@ void basic_shell()
     // Have while loop. Get input and check to see if it matches a command. Execute command.
     int in_shell = 1;
     
+    // So the first line isn't on the first bit.
+    terminal_prompt();
+    
     while (in_shell)
-    {
-        new_terminal_line();
-        
+    {        
         typed_string user_input = get_input();
         
         if (check_string(user_input, "help"))
         {
-            print_to_term("\nexit - Exits the shell");
+            print_help_menu();
         } else if (check_string(user_input, "exit"))
         {
+            // Exits the shell.
             in_shell = 0;
-        } else
+            
+            return;
+        } else if (check_string(user_input, "about"))
+        {
+            print_about();
+        }
         {
             print_to_term("\nThat isn't a valid option. Enter \"help\" to see the options.");
         }
+        
+        new_terminal_line();
     }
     
 }
 
-void kernel_main() 
+int kernel_main() 
 {
     // Clears the screen to get it ready.
     term_init();
@@ -378,5 +406,10 @@ void kernel_main()
     
     basic_shell();
     
-    return;
+    // Clears the screen and gets rid of the cursor.
+    // Exiting the program doesn't seem to work rn, so this is the best we get.
+    term_init();
+    disable_cursor();
+    
+    return 0;
 }
