@@ -2,7 +2,7 @@
 
 Welcome to Genesis-OS an OS I made for the genesis ysws event (challenge? Puzzle? Not sure what you're supposed to call it). It's an x86 operating system using C and a little assembly (most of which has been completely unchanged from being copy pasted from a tutorial), C is definitely the main attraction here since I'm at least comfortable with the basics there. 
 
-It can currently write out text and receive keyboard input, so very much a basic "OS", but I'm actually quite proud of it considering I'd never done anything so close to the hardware (I'm absolutely been sold on bitwise operations, they're just so cool).
+It can currently write out text and receive keyboard input, so very much a basic "OS", but I'm actually quite proud of it considering I'd never done anything so close to the hardware (I'm absolutely sold on bitwise operations, they're just so cool).
 
 If, for whatever reason, you want to fork or use code from this, feel free and good luck.
 
